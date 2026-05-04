@@ -1,0 +1,45 @@
+import express from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import morgan from 'morgan';
+import { connectDB } from './config/db';
+import { config } from './config/env';
+import { seedSuperAdmin } from './utils/seedAdmin';
+
+// Route imports
+import authRoutes from './routes/auth.routes';
+import salaryRoutes from './routes/salary.routes';
+import expenseRoutes from './routes/expense.routes';
+import loanRoutes from './routes/loan.routes';
+
+const app = express();
+
+// Connect to Database
+connectDB().then(() => {
+  seedSuperAdmin();
+});
+
+// Middleware
+app.use(express.json());
+app.use(cors());
+app.use(helmet());
+app.use(morgan('dev'));
+
+// Routes
+app.use('/api/auth', authRoutes);
+app.use('/api/salary', salaryRoutes);
+app.use('/api/expenses', expenseRoutes);
+app.use('/api/loans', loanRoutes);
+
+// Root route
+app.get('/', (req, res) => {
+  res.send('Expense Manager API is running...');
+});
+
+const PORT = config.PORT;
+
+app.listen(PORT, () => {
+  console.log(`Server running in ${config.NODE_ENV} mode on port ${PORT}`);
+});
+
+export default app;
