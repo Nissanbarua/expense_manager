@@ -1,16 +1,14 @@
 import mongoose from 'mongoose';
-import { config } from './env';
+import { env } from './env';
 
-export const connectDB = async () => {
+const connectDB = async (): Promise<void> => {
   try {
-    const conn = await mongoose.connect(config.MONGODB_URI);
+    const conn = await mongoose.connect(env.MONGODB_URI);
     console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
-    if (error instanceof Error) {
-      console.error(`Error: ${error.message}`);
-    } else {
-      console.error('An unknown error occurred during database connection');
-    }
+    console.error('MongoDB connection error:', error);
     process.exit(1);
   }
 };
+
+export default connectDB;

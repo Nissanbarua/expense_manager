@@ -1,40 +1,49 @@
-import { DEFAULT_JAR_PERCENTAGES } from '../utils/jarCalculator';
-import JarAllocation from '../models/JarAllocation';
-import Loan from '../models/Loan';
+export interface JarPercentages {
+  necessities:      number;
+  education:        number;
+  longTermSaving:   number;
+  play:             number;
+  financialFreedom: number;
+  give:             number;
+}
 
-export const calculateJarDistribution = async (userId: string, salaryAmount: number, month: string) => {
-  // Get active loans to deduct EMI from necessities
-  const activeLoans = await Loan.find({ userId, status: 'active' });
-  const totalLoanEMI = activeLoans.reduce((sum, loan) => sum + loan.emiAmount, 0);
+export interface JarDistribution extends JarPercentages {
+  dailyBudget: number;
+}
 
-  const percentages = DEFAULT_JAR_PERCENTAGES;
+export const DEFAULT_JAR_PERCENTAGES: JarPercentages = {
+  necessities:      55,
+  education:        10,
+  longTermSaving:   10,
+  play:             10,
+  financialFreedom: 10,
+  give:              5,
+};
 
-  const distributed = Object.entries(percentages).reduce((acc, [jar, pct]) => {
-    // @ts-ignore
-    acc[jar] = (salaryAmount * pct) / 100;
-    return acc;
-  }, {} as Record<string, number>);
+export function distributeJars(
+  salary: number,
+  percentages: JarPercentages,
+  totalLoanEMI: number,
+  daysInMonth = 30
+): JarDistribution {
+  const keys = Object.keys(percentages) as Array<keyof JarPercentages>;
 
-  // Deduct EMI from necessities
-  distributed.necessities -= totalLoanEMI;
-
-  // Create or update jar allocation for the month
-  const jarAllocation = await JarAllocation.findOneAndUpdate(
-    { userId, month },
-    {
-      userId,
-      month,
-      jars: {
-        necessities: { percentage: percentages.necessities, amount: distributed.necessities, spent: 0 },
-        education: { percentage: percentages.education, amount: distributed.education, spent: 0 },
-        longTermSaving: { percentage: percentages.longTermSaving, amount: distributed.longTermSaving, spent: 0 },
-        play: { percentage: percentages.play, amount: distributed.play, spent: 0 },
-        financialFreedom: { percentage: percentages.financialFreedom, amount: distributed.financialFreedom, spent: 0 },
-        give: { percentage: percentages.give, amount: distributed.give, spent: 0 },
-      },
+  // Explicit types on acc and jar — fixes TS7006 implicit any errors
+  const distributed = keys.reduce(
+    (acc: JarPercentages, jar: keyof JarPercentages) => {
+      acc[jar] = (salary * percentages[jar]) / 100;
+      return acc;
     },
-    { upsert: true, new: true }
+    { ...DEFAULT_JAR_PERCENTAGES }
   );
 
-  return jarAllocation;
-};
+  // Deduct EMI from necessities jar, never go below 0
+  distributed.necessities = Math.max(
+    0,
+    distributed.necessities - totalLoanEMI
+  );
+
+  const dailyBudget = distributed.necessities / daysInMonth;
+
+  return { ...distributed, dailyBudget };
+}

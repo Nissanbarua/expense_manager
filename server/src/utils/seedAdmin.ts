@@ -1,15 +1,15 @@
 import User from '../models/User';
-import { config } from '../config/env';
+import { env } from '../config/env';
 
 export const seedSuperAdmin = async () => {
   try {
-    const adminExists = await User.findOne({ email: config.ADMIN_EMAIL });
+    const adminExists = await User.findOne({ email: env.ADMIN_EMAIL });
 
     if (!adminExists) {
       await User.create({
         name: 'Super Admin',
-        email: config.ADMIN_EMAIL,
-        password: config.ADMIN_PASSWORD,
+        email: env.ADMIN_EMAIL,
+        password: env.ADMIN_PASSWORD,
         currency: 'BDT',
         monthlyIncomeDay: 1,
       });

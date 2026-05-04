@@ -1,35 +1,44 @@
 import { Request, Response, NextFunction } from 'express';
-import { ParamsDictionary } from 'express-serve-static-core';
 import jwt from 'jsonwebtoken';
-import { config } from '../config/env';
-import User, { IUser } from '../models/User';
+import { env } from '../config/env';
 
+// KEY FIX: extend Request so body, query, params, headers are all available
 export interface AuthRequest extends Request {
-  user?: any;
+  userId?: string;
 }
 
-export const protect = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  let token;
+interface JwtPayload {
+  userId: string;
+  iat: number;
+  exp: number;
+}
 
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    token = req.headers.authorization.split(' ')[1];
-  }
-
-  if (!token) {
-    return res.status(401).json({ message: 'Not authorized to access this route' });
-  }
-
+export const authenticate = (
+  req: AuthRequest,
+  res: Response,
+  next: NextFunction
+): void => {
   try {
-    const decoded = jwt.verify(token, config.JWT_SECRET) as { id: string };
-    const user = await User.findById(decoded.id).select('-password');
-    
-    if (!user) {
-      return res.status(404).json({ message: 'No user found with this id' });
+    const authHeader =
+      req.headers['authorization'] || req.headers['Authorization'];
+
+    if (!authHeader || typeof authHeader !== 'string') {
+      res.status(401).json({ success: false, message: 'No token provided' });
+      return;
     }
 
-    req.user = user;
+    const token = authHeader.startsWith('Bearer ')
+      ? authHeader.slice(7)
+      : authHeader;
+
+    const decoded = jwt.verify(token, env.JWT_SECRET) as JwtPayload;
+    req.userId = decoded.userId;
     next();
-  } catch (error) {
-    return res.status(401).json({ message: 'Not authorized to access this route' });
+  } catch {
+    res
+      .status(401)
+      .json({ success: false, message: 'Invalid or expired token' });
   }
 };
+
+export const protect = authenticate;

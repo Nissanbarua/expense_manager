@@ -3,8 +3,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import path from 'path';
-import { connectDB } from './config/db';
-import { config } from './config/env';
+import connectDB from './config/db';
+import { env } from './config/env';
 import { seedSuperAdmin } from './utils/seedAdmin';
 
 // Route imports
@@ -33,7 +33,7 @@ app.use('/api/expenses', expenseRoutes);
 app.use('/api/loans', loanRoutes);
 
 // Serve static assets in production
-if (config.NODE_ENV === 'production') {
+if (env.NODE_ENV === 'production') {
   // Check common locations for client/dist
   const clientPath = path.resolve(process.cwd(), 'client/dist');
   app.use(express.static(clientPath));
@@ -44,11 +44,10 @@ if (config.NODE_ENV === 'production') {
     }
   });
 }
-
-const PORT = config.PORT;
+const PORT = env.PORT;
 
 app.listen(PORT, () => {
-  console.log(`Server running in ${config.NODE_ENV} mode on port ${PORT}`);
+  console.log(`Server running in ${env.NODE_ENV} mode on port ${PORT}`);
 });
 
 export default app;

@@ -1,95 +1,89 @@
 import { Response } from 'express';
-import Expense from '../models/Expense';
-import JarAllocation from '../models/JarAllocation';
-import { AuthRequest } from '../middlewares/auth.middleware';
 import mongoose from 'mongoose';
+import { AuthRequest } from '../middlewares/auth.middleware';
+import Expense from '../models/Expense';
 
-export const createExpense = async (req: AuthRequest, res: Response) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+export const createExpense = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
     const { amount, category, jar, description, date, paymentMethod, tags } = req.body;
-    const userId = req.user?._id;
-    const month = new Date(date || Date.now()).toISOString().slice(0, 7);
-
-    const expense = await Expense.create([{
-      userId,
-      amount,
-      category,
-      jar,
-      description,
-      date,
-      paymentMethod,
-      tags,
-    }], { session });
-
-    // Update jar spent amount
-    const jarAlloc = await JarAllocation.findOne({ userId, month }).session(session);
-    if (jarAlloc) {
-      // @ts-ignore
-      jarAlloc.jars[jar].spent += amount;
-      await jarAlloc.save({ session });
-    }
-
-    await session.commitTransaction();
-    session.endSession();
-
-    res.status(201).json(expense[0]);
+    const expense = await Expense.create({
+      userId: req.userId,
+      amount, category, jar, description,
+      date: date || new Date(),
+      paymentMethod, tags,
+    });
+    res.status(201).json({ success: true, data: expense });
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error', error });
   }
 };
 
-export const getExpenses = async (req: AuthRequest, res: Response) => {
+export const getExpenses = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { startDate, endDate, jar, category } = req.query;
-    const userId = req.user?._id;
-
-    let query: any = { userId };
-
-    if (startDate && endDate) {
-      query.date = { $gte: new Date(startDate as string), $lte: new Date(endDate as string) };
+    const { jar, category, startDate, endDate } = req.query;
+    const filter: Record<string, unknown> = { userId: req.userId };
+    if (jar)      filter.jar = jar;
+    if (category) filter.category = category;
+    if (startDate || endDate) {
+      filter.date = {
+        ...(startDate && { $gte: new Date(startDate as string) }),
+        ...(endDate   && { $lte: new Date(endDate as string) }),
+      };
     }
-    if (jar) query.jar = jar;
-    if (category) query.category = category;
-
-    const expenses = await Expense.find(query).sort({ date: -1 });
-    res.json(expenses);
+    const expenses = await Expense.find(filter).sort({ date: -1 });
+    res.json({ success: true, count: expenses.length, data: expenses });
   } catch (error) {
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error', error });
   }
 };
 
-export const deleteExpense = async (req: AuthRequest, res: Response) => {
-  const session = await mongoose.startSession();
-  session.startTransaction();
+export const updateExpense = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const { id } = req.params;
-    const userId = req.user?._id;
-
-    const expense = await Expense.findOne({ _id: id, userId }).session(session);
-    if (!expense) return res.status(404).json({ message: 'Expense not found' });
-
-    const month = new Date(expense.date).toISOString().slice(0, 7);
-    const jarAlloc = await JarAllocation.findOne({ userId, month }).session(session);
-    
-    if (jarAlloc) {
-      // @ts-ignore
-      jarAlloc.jars[expense.jar].spent -= expense.amount;
-      await jarAlloc.save({ session });
+    const id = req.params.id as string;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({ success: false, message: 'Invalid ID' });
+      return;
     }
-
-    await Expense.deleteOne({ _id: id }).session(session);
-
-    await session.commitTransaction();
-    session.endSession();
-
-    res.json({ message: 'Expense removed' });
+    const expense = await Expense.findOneAndUpdate(
+      { _id: id, userId: req.userId },
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!expense) {
+      res.status(404).json({ success: false, message: 'Expense not found' });
+      return;
+    }
+    res.json({ success: true, data: expense });
   } catch (error) {
-    await session.abortTransaction();
-    session.endSession();
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ success: false, message: 'Server error', error });
+  }
+};
+
+export const deleteExpense = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const id = req.params.id as string;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({ success: false, message: 'Invalid ID' });
+      return;
+    }
+    await Expense.findOneAndDelete({ _id: id, userId: req.userId });
+    res.json({ success: true, message: 'Expense deleted' });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error', error });
+  }
+};
+
+export const getTodayExpenses = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const start = new Date(); start.setHours(0, 0, 0, 0);
+    const end   = new Date(); end.setHours(23, 59, 59, 999);
+    const expenses = await Expense.find({
+      userId: req.userId,
+      date: { $gte: start, $lte: end },
+    }).sort({ date: -1 });
+    const totalSpent = expenses.reduce((sum, e) => sum + e.amount, 0);
+    res.json({ success: true, data: expenses, totalSpent });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error', error });
   }
 };
