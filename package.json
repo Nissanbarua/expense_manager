@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "install-all": "npm install --prefix client && npm install --prefix server",
-    "build": "npm install --prefix server --include=dev && npm run build --prefix server && npm install --prefix client --include=dev && npm run build --prefix client",
+    "build": "cd server && npm install --include=dev && npm run build && cd ../client && npm install --include=dev && npm run build",
     "start": "npm start --prefix server"
   },
   "devDependencies": {

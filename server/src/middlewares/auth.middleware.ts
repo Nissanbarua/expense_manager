@@ -1,9 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
+import { ParamsDictionary } from 'express-serve-static-core';
 import jwt from 'jsonwebtoken';
 import { config } from '../config/env';
 import User, { IUser } from '../models/User';
 
-export interface AuthRequest extends Request {
+export interface AuthRequest<P = ParamsDictionary, ResBody = any, ReqBody = any, ReqQuery = any> extends Request<P, ResBody, ReqBody, ReqQuery> {
   user?: IUser;
 }
 
