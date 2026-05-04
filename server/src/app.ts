@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import path from 'path';
 import { connectDB } from './config/db';
 import { config } from './config/env';
 import { seedSuperAdmin } from './utils/seedAdmin';
@@ -31,10 +32,17 @@ app.use('/api/salary', salaryRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/loans', loanRoutes);
 
-// Root route
-app.get('/', (req, res) => {
-  res.send('Expense Manager API is running...');
-});
+// Serve static assets in production
+if (config.NODE_ENV === 'production') {
+  const clientPath = path.join(__dirname, '../../client/dist');
+  app.use(express.static(clientPath));
+
+  app.get('*', (req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.resolve(clientPath, 'index.html'));
+    }
+  });
+}
 
 const PORT = config.PORT;
 
