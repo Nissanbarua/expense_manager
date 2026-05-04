@@ -34,12 +34,13 @@ app.use('/api/loans', loanRoutes);
 
 // Serve static assets in production
 if (config.NODE_ENV === 'production') {
-  const clientPath = path.join(__dirname, '../../client/dist');
+  // Check common locations for client/dist
+  const clientPath = path.resolve(process.cwd(), 'client/dist');
   app.use(express.static(clientPath));
 
   app.get('*', (req, res) => {
     if (!req.path.startsWith('/api')) {
-      res.sendFile(path.resolve(clientPath, 'index.html'));
+      res.sendFile(path.join(clientPath, 'index.html'));
     }
   });
 }
