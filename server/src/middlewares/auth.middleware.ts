@@ -4,8 +4,8 @@ import jwt from 'jsonwebtoken';
 import { config } from '../config/env';
 import User, { IUser } from '../models/User';
 
-export interface AuthRequest<P = ParamsDictionary, ResBody = any, ReqBody = any, ReqQuery = any> extends Request<P, ResBody, ReqBody, ReqQuery> {
-  user?: IUser;
+export interface AuthRequest extends Request {
+  user?: any;
 }
 
 export const protect = async (req: AuthRequest, res: Response, next: NextFunction) => {
